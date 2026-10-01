@@ -119,6 +119,9 @@ struct ProfileView: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var showingDeleteAccount = false
     @State private var showingSignOutConfirm = false
+    @State private var isLoggingOut = false
+    @State private var showingUnsyncedWarning = false
+    @Environment(SyncManager.self) private var sync
     @State private var errorMessage: String?
     @State private var suggestion: NutritionSuggestion.Targets?
 
@@ -166,9 +169,15 @@ struct ProfileView: View {
         }
         .confirmationDialog("Log out of \(account.email)?", isPresented: $showingSignOutConfirm,
                             titleVisibility: .visible) {
-            Button("Log out", role: .destructive) { account.signOut() }
+            Button("Log out", role: .destructive) { logOut() }
         } message: {
-            Text("Your workouts stay on this iPhone.")
+            Text("Your data is backed up to your account and will come back when you log in again, on this or any iPhone.")
+        }
+        .alert("Not everything is backed up yet", isPresented: $showingUnsyncedWarning) {
+            Button("Log out anyway", role: .destructive) { finishLogOut() }
+            Button("Stay logged in", role: .cancel) {}
+        } message: {
+            Text("Some recent changes couldn't reach the cloud, probably because you're offline. If you log out now, they'll be lost.")
         }
         .alert("Couldn't save", isPresented: Binding(get: { errorMessage != nil },
                                                     set: { if !$0 { errorMessage = nil } })) {
@@ -288,10 +297,19 @@ struct ProfileView: View {
             }
         } else {
             Section {
-                Button("Log out") { showingSignOutConfirm = true }
+                Button {
+                    showingSignOutConfirm = true
+                } label: {
+                    HStack {
+                        Text("Log out")
+                        Spacer()
+                        if isLoggingOut { ProgressView() }
+                    }
+                }
+                .disabled(isLoggingOut)
                 Button("Delete account", role: .destructive) { showingDeleteAccount = true }
             } footer: {
-                Text("Deleting your account removes your login and profile. Workouts already on this iPhone are kept.")
+                Text("Deleting your account permanently removes your login and all your data: workouts, routines, foods and profile, from the cloud and this iPhone.")
             }
         }
     }
@@ -348,6 +366,21 @@ struct ProfileView: View {
         }
     }
 
+    // Uploads anything outstanding first, so nothing is lost when this phone's copy is cleared.
+    private func logOut() {
+        isLoggingOut = true
+        Task {
+            let backedUp = await sync.pushNow()
+            isLoggingOut = false
+            if backedUp { finishLogOut() } else { showingUnsyncedWarning = true }
+        }
+    }
+
+    private func finishLogOut() {
+        sync.stopAndClear()
+        account.signOut()
+    }
+
     private func finish() {
         saveName()
         profile?.setupDone = true
@@ -384,6 +417,7 @@ struct DeleteAccountView: View {
     var onDeleted: () -> Void
 
     @Environment(AccountManager.self) private var account
+    @Environment(SyncManager.self) private var sync
     @Environment(\.dismiss) private var dismiss
     @State private var password = ""
     @State private var isWorking = false
@@ -398,7 +432,7 @@ struct DeleteAccountView: View {
                 } header: {
                     Text("Enter your password to confirm")
                 } footer: {
-                    Text("This permanently deletes the account for \(account.email). It can't be undone.")
+                    Text("This permanently deletes the account for \(account.email) and all its data in the cloud and on this iPhone. It can't be undone.")
                 }
                 if let errorMessage {
                     Section {
@@ -435,8 +469,11 @@ struct DeleteAccountView: View {
         Task {
             defer { isWorking = false }
             do {
-                try await account.deleteAccount(password: password)
+                try await account.deleteAccount(password: password) {
+                    try await sync.deleteCloudData()
+                }
                 onDeleted()
+                sync.stopAndClear()
                 dismiss()
             } catch {
                 errorMessage = error.localizedDescription

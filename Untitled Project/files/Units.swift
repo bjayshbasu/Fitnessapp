@@ -69,6 +69,7 @@ struct SettingsView: View {
     private var sessions: [WorkoutSession]
     @Query private var profiles: [UserProfile]
     @Environment(AccountManager.self) private var account
+    @Environment(SyncManager.self) private var sync
 
     private var unit: WeightUnit { WeightUnit(rawValue: unitRaw) ?? .kg }
 
@@ -100,6 +101,8 @@ struct SettingsView: View {
                             }
                             .padding(.vertical, 4)
                         }
+                    } footer: {
+                        SyncStatusText(status: sync.status) { sync.retryIfNeeded() }
                     }
                 }
 

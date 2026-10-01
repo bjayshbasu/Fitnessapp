@@ -115,12 +115,15 @@ final class AccountManager {
     }
 
     // Deleting an account asks for the password again, as Firebase requires a recent sign-in.
-    func deleteAccount(password: String) async throws {
+    // `beforeDelete` runs once the password is confirmed, while still signed in
+    // (used to remove the account's cloud data).
+    func deleteAccount(password: String, beforeDelete: () async throws -> Void = {}) async throws {
         #if canImport(FirebaseAuth)
         guard let user = Auth.auth().currentUser, let email = user.email else { return }
         do {
             let credential = EmailAuthProvider.credential(withEmail: email, password: password)
             try await user.reauthenticate(with: credential)
+            try await beforeDelete()
             try await user.delete()
         } catch {
             throw AccountError(error)
