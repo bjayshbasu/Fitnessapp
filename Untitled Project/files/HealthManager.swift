@@ -2,12 +2,18 @@ import Foundation
 import HealthKit
 
 // Saves a finished gym session to the Health app as a strength-training workout.
+//
+// Xcode setup required (or the app will crash / be rejected):
+//   1. Target > Signing & Capabilities > + Capability > HealthKit
+//   2. Info.plist keys:
+//      NSHealthUpdateUsageDescription = "Saves your finished workouts to Apple Health."
+//      NSHealthShareUsageDescription  = "Lets the app save workouts to Apple Health."
 enum HealthManager {
     private static let store = HKHealthStore()
 
     static func saveWorkout(start: Date, end: Date) async {
         // Health isn't available on every device (e.g. some iPads).
-        guard HKHealthStore.isHealthDataAvailable() else { return }
+        guard HKHealthStore.isHealthDataAvailable(), end > start else { return }
 
         // Ask permission to write workouts. iOS only shows the prompt the first time.
         let workoutType = HKObjectType.workoutType()
@@ -22,6 +28,7 @@ enum HealthManager {
 
         let configuration = HKWorkoutConfiguration()
         configuration.activityType = .traditionalStrengthTraining
+        configuration.locationType = .indoor
 
         let builder = HKWorkoutBuilder(healthStore: store,
                                        configuration: configuration,
