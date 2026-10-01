@@ -1,6 +1,19 @@
-#if DEBUG
 import Foundation
 import SwiftData
+
+// Test-only launch switches.
+enum DebugFlags {
+    // "-noAccounts": no login, no syncing and no permission prompts (for App Store screenshots).
+    static var screenshotMode: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-noAccounts")
+        #else
+        false
+        #endif
+    }
+}
+
+#if DEBUG
 
 // Test-only: launch with "-seedSampleData" to fill an empty app with ten weeks of
 // workouts, so stats, records and rewards have something to show. Not in release builds.
@@ -44,6 +57,21 @@ enum DebugSampleData {
                     }
                 }
             }
+        }
+
+        // Today's food diary.
+        let today = calendar.startOfDay(for: .now)
+        let foods: [(String, String, Int, Double, Double, Double, Double)] = [
+            ("Greek yogurt with berries", Meal.breakfast.rawValue, 8, 290, 24, 32, 7),
+            ("Oats with banana", Meal.breakfast.rawValue, 8, 380, 12, 68, 7),
+            ("Chicken, rice and broccoli", Meal.lunch.rawValue, 13, 610, 52, 70, 12),
+            ("Protein shake", Meal.snacks.rawValue, 16, 160, 30, 5, 2),
+            ("Salmon with potatoes", Meal.dinner.rawValue, 19, 640, 42, 48, 28)
+        ]
+        for (name, meal, hour, kcal, protein, carbs, fat) in foods {
+            let date = calendar.date(byAdding: .hour, value: hour, to: today) ?? today
+            context.insert(FoodEntry(name: name, date: min(date, .now), meal: meal, calories: kcal,
+                                     proteinG: protein, carbsG: carbs, fatG: fat))
         }
 
         let exercises = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []

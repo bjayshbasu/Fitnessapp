@@ -416,7 +416,7 @@ struct ActiveWorkoutView: View {
         session.inProgress = false
         try? context.save()
 
-        if healthSync {
+        if healthSync && !DebugFlags.screenshotMode {
             let start = session.date
             Task { await HealthManager.saveWorkout(start: start, end: end) }
         }
@@ -602,6 +602,7 @@ enum RestNotifier {
     private static let delegate = Delegate()
 
     static func requestPermission() {
+        guard !DebugFlags.screenshotMode else { return }
         let center = UNUserNotificationCenter.current()
         center.delegate = delegate
         center.requestAuthorization(options: [.alert, .sound]) { _, _ in }

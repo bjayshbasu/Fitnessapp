@@ -40,6 +40,13 @@ final class AccountManager {
     #endif
 
     init() {
+        #if DEBUG
+        // Test-only: "-noAccounts" runs without login or syncing (used for App Store screenshots).
+        if ProcessInfo.processInfo.arguments.contains("-noAccounts") {
+            state = .unavailable
+            return
+        }
+        #endif
         #if canImport(FirebaseAuth)
         guard Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil else {
             state = .unavailable
