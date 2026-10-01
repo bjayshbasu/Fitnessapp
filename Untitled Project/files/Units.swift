@@ -67,6 +67,8 @@ struct SettingsView: View {
     @Query(filter: #Predicate<WorkoutSession> { $0.inProgress == false },
            sort: \WorkoutSession.date, order: .reverse)
     private var sessions: [WorkoutSession]
+    @Query private var profiles: [UserProfile]
+    @Environment(AccountManager.self) private var account
 
     private var unit: WeightUnit { WeightUnit(rawValue: unitRaw) ?? .kg }
 
@@ -80,6 +82,27 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if account.uid != nil {
+                    Section {
+                        NavigationLink {
+                            ProfileView()
+                        } label: {
+                            HStack(spacing: 14) {
+                                ProfileAvatar(photoData: profiles.first { $0.uid == account.uid }?.photoData,
+                                              name: account.displayName.isEmpty ? account.email : account.displayName)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(account.displayName.isEmpty ? "Your profile" : account.displayName)
+                                        .font(.headline)
+                                    Text(account.email)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
+
                 Section {
                     Picker("Weight unit", selection: $unitRaw) {
                         ForEach(WeightUnit.allCases) { unit in
@@ -180,7 +203,8 @@ struct SettingsView: View {
         return lines.joined(separator: "\n")
     }
 
-    private static func csvEscape(_ field: String) -> String {
+    // Pure text formatting, so it can run anywhere (not tied to the main actor).
+    nonisolated private static func csvEscape(_ field: String) -> String {
         guard field.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" }) else { return field }
         return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"") + "\""
     }

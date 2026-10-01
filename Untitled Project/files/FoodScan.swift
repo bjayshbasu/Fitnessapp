@@ -173,12 +173,17 @@ enum BarcodeReader {
             try VNImageRequestHandler(cgImage: cgImage, orientation: orientation).perform([request])
             return request.results?.compactMap(\.payloadStringValue).first
         }
+        #if targetEnvironment(simulator)
         do {
             return try detect(revision: nil)
         } catch {
-            // The newest detector needs the Neural Engine (missing in the simulator); the first one doesn't.
-            return try? detect(revision: VNDetectBarcodesRequestRevision1)
+            // The newest detector needs the Neural Engine, which the simulator lacks.
+            // Revision 1 runs without it (its named constant is deprecated, hence the number).
+            return try? detect(revision: 1)
         }
+        #else
+        return try detect(revision: nil)
+        #endif
     }
 }
 

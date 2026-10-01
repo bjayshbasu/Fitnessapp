@@ -11,13 +11,44 @@ enum AppInfo {
 // The app's entry point.
 @main
 struct WorkoutGenieApp: App {
+    @State private var account = AccountManager()
+
     var body: some Scene {
         WindowGroup {
-            MainTabView()
+            RootView()
+                .environment(account)
         }
         .modelContainer(for: [Exercise.self, Routine.self,
                               RoutineItem.self, WorkoutSession.self,
-                              LoggedSet.self, FoodEntry.self])
+                              LoggedSet.self, FoodEntry.self, UserProfile.self])
+    }
+}
+
+// Login when accounts are set up; straight into the app when they aren't.
+struct RootView: View {
+    @Environment(AccountManager.self) private var account
+    @Query private var profiles: [UserProfile]
+
+    var body: some View {
+        Group {
+            switch account.state {
+            case .loading:
+                ProgressView()
+            case .unavailable:
+                MainTabView()
+            case .signedOut:
+                AuthFlowView()
+            case .signedIn(let uid, _, _):
+                if profiles.first(where: { $0.uid == uid })?.setupDone == true {
+                    MainTabView()
+                } else {
+                    NavigationStack {
+                        ProfileView(isSetup: true)
+                    }
+                }
+            }
+        }
+        .animation(.default, value: account.state)
     }
 }
 
