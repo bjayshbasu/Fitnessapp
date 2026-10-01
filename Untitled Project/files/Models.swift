@@ -69,15 +69,3 @@ final class LoggedSet {
         self.weight = weight
     }
 }
-
-// Put this in your App file: it tells SwiftUI to store these models.
-//
-// @main
-// struct GymLogApp: App {
-//     var body: some Scene {
-//         WindowGroup { ContentView() }
-//             .modelContainer(for: [Exercise.self, Routine.self,
-//                                   RoutineItem.self, WorkoutSession.self,
-//                                   LoggedSet.self])
-//     }
-// }
