@@ -556,7 +556,7 @@ struct SetRow: View {
     }
 }
 
-private struct HistoryItem: Identifiable {
+nonisolated private struct HistoryItem: Identifiable {
     let name: String
     var id: String { name }
 }

@@ -12,9 +12,11 @@ final class FoodEntry {
     var proteinG: Double
     var carbsG: Double
     var fatG: Double
+    var syncID: String = ""
 
     init(name: String, date: Date = .now, meal: String, calories: Double,
          proteinG: Double, carbsG: Double, fatG: Double) {
+        self.syncID = UUID().uuidString
         self.name = name
         self.date = date
         self.meal = meal

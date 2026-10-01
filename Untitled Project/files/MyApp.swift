@@ -11,13 +11,66 @@ enum AppInfo {
 // The app's entry point.
 @main
 struct WorkoutGenieApp: App {
+    private let container: ModelContainer
+    @State private var account = AccountManager()
+    @State private var sync: SyncManager
+
+    init() {
+        do {
+            container = try ModelContainer(for: Exercise.self, Routine.self,
+                                           RoutineItem.self, WorkoutSession.self,
+                                           LoggedSet.self, FoodEntry.self, UserProfile.self)
+        } catch {
+            fatalError("Couldn't open the workout database: \(error)")
+        }
+        _sync = State(initialValue: SyncManager(container: container))
+    }
+
     var body: some Scene {
         WindowGroup {
-            MainTabView()
+            RootView()
+                .environment(account)
+                .environment(sync)
         }
-        .modelContainer(for: [Exercise.self, Routine.self,
-                              RoutineItem.self, WorkoutSession.self,
-                              LoggedSet.self, FoodEntry.self])
+        .modelContainer(container)
+    }
+}
+
+// Login when accounts are set up; straight into the app when they aren't.
+struct RootView: View {
+    @Environment(AccountManager.self) private var account
+    @Environment(SyncManager.self) private var sync
+    @Environment(\.scenePhase) private var scenePhase
+    @Query private var profiles: [UserProfile]
+
+    var body: some View {
+        Group {
+            switch account.state {
+            case .loading:
+                ProgressView()
+            case .unavailable:
+                MainTabView()
+            case .signedOut:
+                AuthFlowView()
+            case .signedIn(let uid, _, _):
+                if profiles.first(where: { $0.uid == uid })?.setupDone == true {
+                    MainTabView()
+                } else {
+                    NavigationStack {
+                        ProfileView(isSetup: true)
+                    }
+                }
+            }
+        }
+        .animation(.default, value: account.state)
+        // Back up and download this account's data while logged in.
+        .onChange(of: account.uid, initial: true) { _, uid in
+            if let uid { sync.start(uid: uid) } else { sync.stop() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { Task { await sync.pushNow() } }
+            if phase == .active { sync.retryIfNeeded() }
+        }
     }
 }
 
@@ -102,7 +155,27 @@ enum DataMaintenance {
     static func run(in context: ModelContext) {
         seedExercisesIfNeeded(in: context)
         mergeDuplicateExercises(in: context)
+        ensureSyncIDs(in: context)
         try? context.save()
+    }
+
+    // Items saved before syncing existed have no ID yet (or share the blank default).
+    // Give every one its own.
+    static func ensureSyncIDs(in context: ModelContext) {
+        func fix<T: PersistentModel>(_ items: [T], _ keyPath: ReferenceWritableKeyPath<T, String>) {
+            var seen = Set<String>()
+            for item in items {
+                let id = item[keyPath: keyPath]
+                if id.isEmpty || !seen.insert(id).inserted {
+                    item[keyPath: keyPath] = UUID().uuidString
+                    seen.insert(item[keyPath: keyPath])
+                }
+            }
+        }
+        fix((try? context.fetch(FetchDescriptor<Exercise>())) ?? [], \.syncID)
+        fix((try? context.fetch(FetchDescriptor<Routine>())) ?? [], \.syncID)
+        fix((try? context.fetch(FetchDescriptor<WorkoutSession>())) ?? [], \.syncID)
+        fix((try? context.fetch(FetchDescriptor<FoodEntry>())) ?? [], \.syncID)
     }
 
     // Adds the starter exercise library once, skipping names you already have.

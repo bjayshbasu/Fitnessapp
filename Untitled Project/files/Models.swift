@@ -6,10 +6,13 @@ import SwiftData
 final class Exercise {
     var name: String
     var muscleGroup: String
+    // Matches this item with its copy in the account's cloud backup.
+    var syncID: String = ""
 
     init(name: String, muscleGroup: String = "") {
         self.name = name
         self.muscleGroup = muscleGroup
+        self.syncID = UUID().uuidString
     }
 
     // Groups an exercise is shown under. Empty means "Other".
@@ -56,9 +59,11 @@ enum MuscleGroup {
 final class Routine {
     var name: String
     @Relationship(deleteRule: .cascade) var items: [RoutineItem] = []
+    var syncID: String = ""
 
     init(name: String) {
         self.name = name
+        self.syncID = UUID().uuidString
     }
 
     var sortedItems: [RoutineItem] {
@@ -94,11 +99,13 @@ final class WorkoutSession {
     var endDate: Date? = nil
     var inProgress: Bool = false
     @Relationship(deleteRule: .cascade) var sets: [LoggedSet] = []
+    var syncID: String = ""
 
     init(date: Date = .now, routineName: String, inProgress: Bool = false) {
         self.date = date
         self.routineName = routineName
         self.inProgress = inProgress
+        self.syncID = UUID().uuidString
     }
 
     // How long the workout took, if it has been finished.
