@@ -96,6 +96,7 @@ struct ActiveWorkoutView: View {
     @State private var showingAddExercise = false
     @State private var historyExercise: String?
     @State private var showingRename = false
+    @State private var exerciseToRename: String?
     // Best estimated 1RM per exercise before this workout, for live PRs.
     @State private var previousBests: [String: Double] = [:]
     @State private var lastTime: [String: String] = [:]
@@ -143,7 +144,7 @@ struct ActiveWorkoutView: View {
                                         .font(.caption.bold())
                                         .foregroundStyle(Color.accentColor)
                                 }
-                                Text(name)
+                                ExerciseNameButton(name: name) { exerciseToRename = name }
                             }
                             Spacer()
                             Button {
@@ -189,6 +190,7 @@ struct ActiveWorkoutView: View {
             .navigationBarTitleDisplayMode(.inline)
             .scrollDismissesKeyboard(.interactively)
             .renameWorkout(session, isPresented: $showingRename)
+            .renameExercise($exerciseToRename) { loadHistory() }
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     WorkoutTitleButton(name: session.routineName) { showingRename = true }

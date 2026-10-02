@@ -431,7 +431,7 @@ struct ExerciseFormView: View {
             let oldName = exercise.name
             exercise.name = newName
             exercise.muscleGroup = savedGroup
-            if oldName != newName { renameHistory(from: oldName, to: newName) }
+            if oldName != newName { ExerciseRenamer.renameSets(from: oldName, to: newName, in: context) }
             saved = exercise
         } else {
             saved = Exercise(name: newName, muscleGroup: savedGroup)
@@ -442,12 +442,102 @@ struct ExerciseFormView: View {
         dismiss()
     }
 
+}
+
+// Renames an exercise everywhere: the library, past workouts and any workout in progress,
+// so charts, records and "last time" stay together.
+enum ExerciseRenamer {
+    enum Problem: Error { case empty, duplicate }
+
+    static func rename(_ oldName: String, to newName: String, in context: ModelContext) throws(Problem) {
+        let newName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !newName.isEmpty else { throw .empty }
+        guard newName != oldName else { return }
+        let exercises = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []
+        let old = DataMaintenance.normalized(oldName), new = DataMaintenance.normalized(newName)
+        // A different exercise already has this name (a change of capitals is fine).
+        if old != new, exercises.contains(where: { DataMaintenance.normalized($0.name) == new }) {
+            throw .duplicate
+        }
+        exercises.first { DataMaintenance.normalized($0.name) == old }?.name = newName
+        renameSets(from: oldName, to: newName, in: context)
+        try? context.save()
+    }
+
     // Keeps charts and "last time" pre-fill working after a rename.
-    private func renameHistory(from oldName: String, to newName: String) {
+    static func renameSets(from oldName: String, to newName: String, in context: ModelContext) {
         let descriptor = FetchDescriptor<LoggedSet>(predicate: #Predicate { $0.exerciseName == oldName })
         for set in (try? context.fetch(descriptor)) ?? [] {
             set.exerciseName = newName
         }
+    }
+}
+
+// Exercise name in a section header, with a pencil; tap to rename.
+struct ExerciseNameButton: View {
+    let name: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Text(name)
+                    .foregroundStyle(Color(.secondaryLabel))
+                Image(systemName: "pencil")
+                    .font(.caption2.bold())
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel("\(name). Rename exercise")
+    }
+}
+
+private struct RenameExerciseModifier: ViewModifier {
+    @Binding var exerciseName: String?
+    var onRenamed: () -> Void
+
+    @Environment(\.modelContext) private var context
+    @State private var draft = ""
+    @State private var problem: String?
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: exerciseName) { _, name in
+                if let name { draft = name }
+            }
+            .alert("Rename exercise",
+                   isPresented: Binding(get: { exerciseName != nil }, set: { if !$0 { exerciseName = nil } })) {
+                TextField("Exercise name", text: $draft)
+                    .textInputAutocapitalization(.words)
+                Button("Save") { save() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This renames the exercise everywhere, including past workouts, so your progress stays together.")
+            }
+            .alert("Couldn't rename", isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(problem ?? "")
+            }
+    }
+
+    private func save() {
+        guard let oldName = exerciseName else { return }
+        do {
+            try ExerciseRenamer.rename(oldName, to: draft, in: context)
+            onRenamed()
+        } catch .duplicate {
+            problem = "You already have an exercise called “\(draft.trimmingCharacters(in: .whitespaces))”."
+        } catch {
+            // Empty name: keep the old one.
+        }
+    }
+}
+
+extension View {
+    func renameExercise(_ exerciseName: Binding<String?>, onRenamed: @escaping () -> Void = {}) -> some View {
+        modifier(RenameExerciseModifier(exerciseName: exerciseName, onRenamed: onRenamed))
     }
 }
 

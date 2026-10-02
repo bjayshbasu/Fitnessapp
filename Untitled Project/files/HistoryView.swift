@@ -106,6 +106,7 @@ struct SessionDetailView: View {
     let session: WorkoutSession
     @AppStorage("weightUnit") private var unitRaw = WeightUnit.kg.rawValue
     @State private var showingRename = false
+    @State private var exerciseToRename: String?
     private var unit: WeightUnit { WeightUnit(rawValue: unitRaw) ?? .kg }
 
     var body: some View {
@@ -132,10 +133,11 @@ struct SessionDetailView: View {
                         }
                     }
                 } header: {
-                    if let label = SupersetLabel.text(for: session.sets(for: name).first?.supersetGroup ?? 0) {
-                        Text("\(name) · \(label)")
-                    } else {
-                        Text(name)
+                    HStack(spacing: 6) {
+                        ExerciseNameButton(name: name) { exerciseToRename = name }
+                        if let label = SupersetLabel.text(for: session.sets(for: name).first?.supersetGroup ?? 0) {
+                            Text("· \(label)")
+                        }
                     }
                 }
             }
@@ -143,6 +145,7 @@ struct SessionDetailView: View {
         .navigationTitle(session.routineName)
         .navigationBarTitleDisplayMode(.inline)
         .renameWorkout(session, isPresented: $showingRename)
+        .renameExercise($exerciseToRename)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 WorkoutTitleButton(name: session.routineName) { showingRename = true }
