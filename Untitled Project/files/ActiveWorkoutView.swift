@@ -95,6 +95,7 @@ struct ActiveWorkoutView: View {
     @State private var showingNothingDone = false
     @State private var showingAddExercise = false
     @State private var historyExercise: String?
+    @State private var showingRename = false
     // Best estimated 1RM per exercise before this workout, for live PRs.
     @State private var previousBests: [String: Double] = [:]
     @State private var lastTime: [String: String] = [:]
@@ -187,9 +188,14 @@ struct ActiveWorkoutView: View {
             .navigationTitle(session.routineName)
             .navigationBarTitleDisplayMode(.inline)
             .scrollDismissesKeyboard(.interactively)
+            .renameWorkout(session, isPresented: $showingRename)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    WorkoutTitleButton(name: session.routineName) { showingRename = true }
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
+                        Button("Rename workout", systemImage: "pencil") { showingRename = true }
                         Picker("Rest time", selection: $restSeconds) {
                             ForEach(RestOptions.seconds, id: \.self) { seconds in
                                 Text("Rest \(AppFormat.restTime(seconds))").tag(seconds)
