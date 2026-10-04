@@ -11,10 +11,10 @@ enum WeightUnit: String, CaseIterable, Identifiable {
 
     private static let kgPerLb = 0.45359237
 
-    // Kilograms (stored) -> the number to show, rounded to 1 decimal.
+    // Kilograms (stored) -> the number to show. Kilograms keep 2 decimals so small plates
+    // (61.25 kg) survive; pounds round to 1 decimal to hide conversion noise.
     func display(fromKg kg: Double) -> Double {
-        let value = self == .kg ? kg : kg / Self.kgPerLb
-        return (value * 10).rounded() / 10
+        self == .kg ? (kg * 100).rounded() / 100 : ((kg / Self.kgPerLb) * 10).rounded() / 10
     }
 
     // The number the person typed -> kilograms (to store).
@@ -224,5 +224,97 @@ struct WorkoutCSV: Transferable {
             Data(csv.text.utf8)
         }
         .suggestedFileName("workout-genie-history.csv")
+    }
+}
+
+// A number box that saves on every keystroke, so a value is never lost when you tap
+// ✓ or Save without closing the keyboard first. Accepts "." or "," as the decimal point.
+struct NumberField: View {
+    let placeholder: String
+    @Binding var value: Double?
+    var allowsDecimal = true
+
+    @State private var text = ""
+    @State private var selection: TextSelection?
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        TextField(placeholder, text: $text, selection: $selection)
+            .keyboardType(allowsDecimal ? .decimalPad : .numberPad)
+            .focused($isFocused)
+            .onAppear { text = Self.format(value) }
+            // Changes made elsewhere (e.g. a scan filling the form) show up, but never while typing.
+            .onChange(of: value) { _, newValue in
+                if !isFocused { text = Self.format(newValue) }
+            }
+            .onChange(of: isFocused) { _, focused in
+                if focused {
+                    // Select the whole number, so typing replaces it instead of adding to it.
+                    DispatchQueue.main.async {
+                        selection = TextSelection(range: text.startIndex..<text.endIndex)
+                    }
+                } else {
+                    text = Self.format(value)
+                }
+            }
+            // Saves what you type straight away. The text itself is only tidied up when you
+            // leave the box: rewriting it mid-typing confuses the iPhone's text cursor.
+            .onChange(of: text) { _, newText in
+                value = Self.parse(Self.clean(newText, allowsDecimal: allowsDecimal))
+            }
+    }
+
+    // Digits plus at most one decimal point, with at most 2 decimal places.
+    static func clean(_ text: String, allowsDecimal: Bool) -> String {
+        var result = ""
+        var seenSeparator = false
+        var decimals = 0
+        for character in text {
+            if character.isASCII && character.isNumber {
+                if seenSeparator {
+                    guard decimals < 2 else { continue }
+                    decimals += 1
+                }
+                result.append(character)
+            } else if character == "." || character == "," {
+                // Whole-number boxes stop at a decimal point ("10.5" reps -> 10).
+                guard allowsDecimal else { break }
+                if !seenSeparator {
+                    seenSeparator = true
+                    result.append(character)
+                }
+            }
+        }
+        return result
+    }
+
+    static func parse(_ text: String) -> Double? {
+        guard !text.isEmpty else { return nil }
+        return Double(text.replacingOccurrences(of: ",", with: "."))
+    }
+
+    static func format(_ value: Double?) -> String {
+        guard let value else { return "" }
+        let formatter = NumberFormatter()
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 2
+        formatter.usesGroupingSeparator = false
+        return formatter.string(from: NSNumber(value: value)) ?? ""
+    }
+}
+
+extension NumberField {
+    // For values that are never empty: clearing the box counts as 0 until you type.
+    init(_ placeholder: String, value: Binding<Double>, allowsDecimal: Bool = true) {
+        self.init(placeholder: placeholder,
+                  value: Binding(get: { value.wrappedValue }, set: { value.wrappedValue = $0 ?? 0 }),
+                  allowsDecimal: allowsDecimal)
+    }
+
+    init(_ placeholder: String, value: Binding<Int>) {
+        self.init(placeholder: placeholder,
+                  value: Binding(get: { Double(value.wrappedValue) },
+                                 set: { value.wrappedValue = Int($0 ?? 0) }),
+                  allowsDecimal: false)
     }
 }
