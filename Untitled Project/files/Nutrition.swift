@@ -447,7 +447,9 @@ struct FoodFormView: View {
                     }
                 }
                 Button("Read nutrition label", systemImage: "text.viewfinder") { startPhoto(.label) }
-                if hasMealKey {
+                if !FoodPhotoAnalyzer.isOffered {
+                    EmptyView()
+                } else if hasMealKey {
                     Button("Snap a meal (AI)", systemImage: "sparkles") { startPhoto(.meal) }
                 } else {
                     NavigationLink {

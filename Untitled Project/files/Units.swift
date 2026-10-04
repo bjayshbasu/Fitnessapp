@@ -139,9 +139,11 @@ struct SettingsView: View {
                     Text("When you hit every target rep, your next workout starts \(unit == .kg ? "2.5 kg" : "5 lb") heavier, or with one more rep for bodyweight exercises. You can always change the numbers.")
                 }
 
-                Section("Nutrition") {
-                    NavigationLink("Food photo scanning") {
-                        PhotoScanSettingsView()
+                if FoodPhotoAnalyzer.isOffered {
+                    Section("Nutrition") {
+                        NavigationLink("Food photo scanning") {
+                            PhotoScanSettingsView()
+                        }
                     }
                 }
 

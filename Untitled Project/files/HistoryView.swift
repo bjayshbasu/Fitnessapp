@@ -105,6 +105,8 @@ struct SessionRow: View {
 struct SessionDetailView: View {
     let session: WorkoutSession
     @AppStorage("weightUnit") private var unitRaw = WeightUnit.kg.rawValue
+    @State private var showingRename = false
+    @State private var exerciseToRename: String?
     private var unit: WeightUnit { WeightUnit(rawValue: unitRaw) ?? .kg }
 
     var body: some View {
@@ -131,15 +133,79 @@ struct SessionDetailView: View {
                         }
                     }
                 } header: {
-                    if let label = SupersetLabel.text(for: session.sets(for: name).first?.supersetGroup ?? 0) {
-                        Text("\(name) · \(label)")
-                    } else {
-                        Text(name)
+                    HStack(spacing: 6) {
+                        ExerciseNameButton(name: name) { exerciseToRename = name }
+                        if let label = SupersetLabel.text(for: session.sets(for: name).first?.supersetGroup ?? 0) {
+                            Text("· \(label)")
+                        }
                     }
                 }
             }
         }
         .navigationTitle(session.routineName)
         .navigationBarTitleDisplayMode(.inline)
+        .renameWorkout(session, isPresented: $showingRename)
+        .renameExercise($exerciseToRename)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                WorkoutTitleButton(name: session.routineName) { showingRename = true }
+            }
+        }
+    }
+}
+
+// The workout's name in the navigation bar, with a pencil; tap to rename.
+struct WorkoutTitleButton: View {
+    let name: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Text(name)
+                    .font(.headline)
+                    .lineLimit(1)
+                Image(systemName: "pencil")
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+            }
+            .foregroundStyle(.primary)
+        }
+        .accessibilityLabel("\(name). Rename workout")
+    }
+}
+
+// Renames one workout. The routine it came from keeps its name.
+private struct RenameWorkoutModifier: ViewModifier {
+    let session: WorkoutSession
+    @Binding var isPresented: Bool
+
+    @Environment(\.modelContext) private var context
+    @State private var draft = ""
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: isPresented) { _, showing in
+                if showing { draft = session.routineName }
+            }
+            .alert("Rename workout", isPresented: $isPresented) {
+                TextField("Workout name", text: $draft)
+                    .textInputAutocapitalization(.words)
+                Button("Save") {
+                    let name = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !name.isEmpty else { return }
+                    session.routineName = name
+                    try? context.save()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This only renames this workout, not the routine.")
+            }
+    }
+}
+
+extension View {
+    func renameWorkout(_ session: WorkoutSession, isPresented: Binding<Bool>) -> some View {
+        modifier(RenameWorkoutModifier(session: session, isPresented: isPresented))
     }
 }

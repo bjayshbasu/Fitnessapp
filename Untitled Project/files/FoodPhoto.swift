@@ -44,6 +44,14 @@ enum FoodPhotoAnalyzer {
 
     static var hasKey: Bool { APIKeyStore.read() != nil }
 
+    // Off in App Store builds for now: few people have an API key and App Review
+    // can't test it. Builds run from Xcode still show it.
+    #if DEBUG
+    static let isOffered = true
+    #else
+    static let isOffered = false
+    #endif
+
     static func analyze(_ image: UIImage) async throws -> FoodEstimate {
         guard let key = APIKeyStore.read() else { throw FoodPhotoError.missingKey }
         guard let jpeg = jpegData(for: image) else { throw FoodPhotoError.unreadable }
