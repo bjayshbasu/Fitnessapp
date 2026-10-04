@@ -8,8 +8,10 @@ struct ContentView: View {
     @Query(filter: #Predicate<WorkoutSession> { $0.inProgress == false })
     private var finished: [WorkoutSession]
     @AppStorage(WeeklyGoal.key) private var weeklyGoal = 3
+    @Query private var exercises: [Exercise]
 
     @State private var path: [Routine] = []
+    @State private var showingPlans = false
     @State private var showingNew = false
     @State private var newName = ""
     @State private var routineToDelete: Routine?
@@ -20,6 +22,13 @@ struct ContentView: View {
                 if !routines.isEmpty {
                     Section {
                         WeeklyGoalCard(status: WeeklyGoal.status(sessions: finished, goal: weeklyGoal))
+                    }
+                    if let pick = GeniePick.today(routines: routines, sessions: finished, exercises: exercises) {
+                        Section {
+                            GeniePickCard(pick: pick) {
+                                WorkoutBuilder.start(routine: pick.routine, in: context)
+                            }
+                        }
                     }
                 }
 
@@ -61,8 +70,23 @@ struct ContentView: View {
                         }
                     }
                 }
+
+                if !routines.isEmpty {
+                    Section {
+                        NavigationLink {
+                            PlansView()
+                        } label: {
+                            Label("Browse workout plans", systemImage: "list.bullet.rectangle.portrait")
+                        }
+                    } footer: {
+                        Text("Ready-made plans like Push / Pull / Legs, added in one tap.")
+                    }
+                }
             }
             .navigationTitle("Routines")
+            .navigationDestination(isPresented: $showingPlans) {
+                PlansView()
+            }
             .navigationDestination(for: Routine.self) { routine in
                 RoutineEditorView(routine: routine)
             }
@@ -78,10 +102,11 @@ struct ContentView: View {
                             Text("Welcome to \(AppInfo.name)")
                         }
                     } description: {
-                        Text("Create a routine like “Push Day”, add exercises, then start your workout.")
+                        Text("Start with a ready-made plan, or create your own routine.")
                     } actions: {
-                        Button("Create Routine") { showingNew = true }
+                        Button("Browse Workout Plans") { showingPlans = true }
                             .buttonStyle(.borderedProminent)
+                        Button("Create My Own Routine") { showingNew = true }
                     }
                 }
             }
