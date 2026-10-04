@@ -510,8 +510,7 @@ struct SetRow: View {
             }
             .frame(width: 24, alignment: .leading)
 
-            TextField(unit.rawValue, value: weightBinding, format: .number)
-                .keyboardType(.decimalPad)
+            NumberField(unit.rawValue, value: weightBinding)
                 .multilineTextAlignment(.center)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 76)
@@ -524,8 +523,7 @@ struct SetRow: View {
             Text("×")
                 .foregroundStyle(.secondary)
 
-            TextField("reps", value: repsBinding, format: .number)
-                .keyboardType(.numberPad)
+            NumberField("reps", value: repsBinding)
                 .multilineTextAlignment(.center)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 56)

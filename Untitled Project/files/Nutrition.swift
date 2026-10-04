@@ -544,8 +544,7 @@ struct FoodFormView: View {
                              placeholder: String = "0") -> some View {
         LabeledContent(title) {
             HStack(spacing: 6) {
-                TextField(placeholder, value: value, format: .number)
-                    .keyboardType(.decimalPad)
+                NumberField(placeholder: placeholder, value: value)
                     .multilineTextAlignment(.trailing)
                     .frame(maxWidth: 100)
                     .accessibilityLabel("\(title) in \(unit)")

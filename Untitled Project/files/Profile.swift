@@ -248,11 +248,10 @@ struct ProfileView: View {
             heightRow(profile)
             LabeledContent("Body weight") {
                 HStack(spacing: 6) {
-                    TextField("0", value: Binding(
+                    NumberField(placeholder: "0", value: Binding(
                         get: { profile.weightKg > 0 ? unit.display(fromKg: profile.weightKg) : nil },
                         set: { profile.weightKg = max(0, unit.kg(fromDisplay: $0 ?? 0)) }
-                    ), format: .number)
-                    .keyboardType(.decimalPad)
+                    ))
                     .multilineTextAlignment(.trailing)
                     .frame(maxWidth: 90)
                     .accessibilityLabel("Body weight in \(unit.rawValue)")
@@ -320,11 +319,10 @@ struct ProfileView: View {
         if unit == .kg {
             LabeledContent("Height") {
                 HStack(spacing: 6) {
-                    TextField("0", value: Binding(
+                    NumberField(placeholder: "0", value: Binding(
                         get: { profile.heightCm > 0 ? profile.heightCm.rounded() : nil },
                         set: { profile.heightCm = max(0, $0 ?? 0) }
-                    ), format: .number)
-                    .keyboardType(.numberPad)
+                    ), allowsDecimal: false)
                     .multilineTextAlignment(.trailing)
                     .frame(maxWidth: 90)
                     .accessibilityLabel("Height in centimetres")
